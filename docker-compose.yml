@@ -15,7 +15,16 @@ services:
     restart: unless-stopped
 
   artex:
-    image: autumn27/artex:${ARTEX_TAG:-latest}
+    # 应用镜像只从本仓库源码构建（Dockerfile.build：Next 静态导出 → Go 编译内嵌单二进制
+    # → 运行环境），不使用任何第三方预构建镜像。首次 `docker compose up -d` 会自动构建
+    # （几分钟）；之后改了代码要重建，跑 `docker compose build artex` 或 `up -d --build`。
+    build:
+      context: .
+      dockerfile: Dockerfile.build
+      args:
+        ARTEX_VERSION: ${ARTEX_VERSION:-docker}
+    # 本地构建出来的镜像 tag（ARTEX_TAG 在 .env 里，缺省 local）
+    image: artex:${ARTEX_TAG:-local}
     depends_on:
       postgres:
         condition: service_healthy
