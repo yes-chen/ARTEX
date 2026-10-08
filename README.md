@@ -107,7 +107,7 @@ cp config.example.json config.json   # 填好 database 连接
 ./start.sh                           # → http://localhost:8787
 ```
 
-> 请用 `start.sh` / `start.bat` 启动，而不是直接跑 `./artex`。它是个守护脚本：程序退出后按退出码决定是否重新拉起，**页面上的[一键更新](#方式一页面一键更新推荐)靠它完成换装**。直接运行 `./artex` 时更新完就不会被拉起了。
+> 请用 `start.sh` / `start.bat` 启动，而不是直接跑 `./artex`。它是个守护脚本：程序退出后按退出码决定是否重新拉起（崩溃自愈）。直接运行 `./artex` 就少了这层自愈。
 > 后台常驻：`nohup ./start.sh >artex.log 2>&1 &`。
 
 ### 方式四：从源码编译单二进制
@@ -144,35 +144,10 @@ ARTEX_TARGETS=linux/amd64,windows/amd64 ./build.sh --release
 
 > 升级只换程序、不动数据：Postgres 数据卷 `pgdata`、`./data`（jwt.key / SQLite 等）、`./skills` 都会保留。**数据库迁移无需手动执行**——`artex` 每次启动会幂等重跑 `schema.sql`（含 `ADD COLUMN` / `CREATE INDEX IF NOT EXISTS`），即“重启即迁移”。升级前仍建议先备份 `./data` 与数据库。
 
-### 本仓库的私有 Release 更新源
+> ⚠️ **本仓库已移除「页面一键更新」（程序自更新）功能**：程序不会再从任何远端仓库
+> 下载并替换自身二进制。升级请用下面的方式（Docker / 重新编译 / 手动替换二进制）。
 
-页面一键更新固定从 [Hinln/ARTEX Releases](https://github.com/Hinln/ARTEX/releases) 检查和下载版本。克隆或通过 Git 更新源码也使用 `Hinln/ARTEX`；原项目的 Go module 路径保持不变。
-
-这是私有仓库。请为运行 ARTEX 的后端进程设置 `ARTEX_UPDATE_GITHUB_TOKEN`，令牌只需本仓库的 **Contents: read** 权限。令牌由后端用于查询 Release 和下载附件，不发送给浏览器，也不要提交到 Git。
-
-```bash
-# 先在当前 shell 或服务环境中安全设置 ARTEX_UPDATE_GITHUB_TOKEN
-./start.sh
-```
-
-本地直接启动时，`start.sh` 不会自动读取 `.env`；必须将变量导出到进程环境。Docker Compose 部署则可在未纳入 Git 的 `.env` 中填写该变量，并重建 artex 容器；镜像需要包含本分支的更新代码，旧版镜像不会因此切换升级源。
-
-需要先在本仓库发布非 draft、非 prerelease 的正式 Release，并附上 `artex-<版本>-<os>-<arch>.zip` 和 `SHA256SUMS`，页面才能提供可安装更新。仓库里只有源码时还不能在线升级。现有 Release 工作流会在推送 `v*` tag 时为当前仓库生成这些附件。
-
-### 方式一：页面一键更新（推荐）
-
-在 **系统配置** 页（侧边栏「系统配置」→ `/system/settings`）的**版本与更新**卡片里，可以直接检查并安装新版本，无需登录服务器。
-
-点「更新」后：下载当前平台的发布包 → 比对 Release 的 `SHA256SUMS` → 用 `-h` 冒烟测试新二进制 → 暂存为 `artex.new` → 程序退出，由 `start.sh` / `start.bat` 重新拉起并完成换装。页面会自动等到新版本上线后刷新。
-
-- **失败不会留下坏程序**：校验或冒烟不通过就丢弃暂存件、继续跑当前版本；换装后的新版若连续 3 次启动失败，会自动回滚到 `artex.old`（失败的那个留作 `artex.failed` 供排查）。
-- **随时可回退**：上一版本保留为 `artex.old`，卡片上有「回滚到上一版本」。注意数据库结构不会回退。
-- **更新会中断正在运行的任务**——更新即重启，请在空闲时进行。
-- **开发构建不给更新**：版本号是 `dev` 或 `git describe` 带后缀时禁用，避免正式版覆盖掉本地调试的二进制。
-- **Docker 下只换程序、不换镜像**：镜像里的 playwright / nmap 等工具链不会跟着升级，且 `docker compose up -d` 重建容器后会退回镜像自带的版本。要连镜像一起升级仍请用 `docker compose pull artex && docker compose up -d artex`。
-- 访问 GitHub 需要代理时，在同一页面配置**全局代理**即可，更新链路会走它。更新只从 GitHub 域名下载并强制 HTTPS。
-
-### 方式二：一键更新脚本
+### 方式一：一键更新脚本
 
 ```bash
 cd ARTEX
@@ -184,7 +159,7 @@ cd ARTEX
 - **① Docker**：可指定目标镜像 tag（回车沿用 `.env` 的 `ARTEX_TAG`，缺省 `latest`）→ `docker compose pull` → `docker compose up -d`（换新镜像重启即自动迁移）。
 - **② 本地**：重建前端静态产物 → 重新编译 `./artex`（完成后重启进程生效）。
 
-### 方式三：Docker Compose（手动）
+### 方式二：Docker Compose（手动）
 
 ```bash
 cd ARTEX
@@ -195,7 +170,7 @@ docker compose up -d artex     # 换新镜像重启 → 自动迁移 schema
 docker image prune -f          # 清理旧镜像（可选）
 ```
 
-### 方式四：预编译二进制（Releases）
+### 方式三：预编译二进制（Releases）
 
 到 [Releases](https://github.com/Hinln/ARTEX/releases) 下载新版本 zip，停掉旧进程后覆盖 `artex` 与 `skills/`（保留你的 `config.json` 与 `data/`），重启即可：
 
@@ -204,7 +179,7 @@ cp -r <解压目录>/skills ./ && cp <解压目录>/artex ./
 ./start.sh
 ```
 
-### 方式五：从源码编译
+### 方式四：从源码编译
 
 ```bash
 git pull

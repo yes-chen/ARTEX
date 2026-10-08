@@ -9,13 +9,9 @@
 # 它只做一件事：把 artex 跑起来，进程退出后按退出码决定要不要再拉起。
 #
 #   0      用户正常停止        → 退出循环
-#   75     程序请求重启        → 立刻重跑（页面点了"一键更新"或"回滚"）
 #   其他   崩溃                → 退避后重跑（1→2→4…最多 60 秒）
 #
-# 刻意不在这里做下载、SHA256 校验或换装：那些逻辑在 sh 和 bat 上要写两套，
-# 而它们恰恰是最不能出错的一环——一旦换上跑不起来的二进制，本脚本会忠实地
-# 反复拉起它，用户只能上机器手工救。所以校验/换装全部留在 Go 里（selfupdate 包），
-# 由 artex 自己在启动时完成，脚本保持傻瓜化。
+# 它不做任何下载、校验或换装：那些恰恰是最不能出错的一环，脚本保持傻瓜化。
 set -u
 
 cd "$(dirname "$0")" || exit 1
@@ -23,7 +19,6 @@ cd "$(dirname "$0")" || exit 1
 BIN=./artex
 [ -x "$BIN" ] || { echo "[artex] 找不到可执行文件 $BIN" >&2; exit 1; }
 
-RESTART_CODE=75
 MAX_DELAY=60
 
 child=0
@@ -66,11 +61,6 @@ while :; do
 		0)
 			echo "[artex] 正常退出"
 			exit 0
-			;;
-		"$RESTART_CODE")
-			# 更新/回滚已就绪：重跑后 artex 会在启动时完成换装（见 selfupdate.Bootstrap）。
-			echo "[artex] 请求重启（应用新版本）…"
-			delay=1
 			;;
 		*)
 			echo "[artex] 异常退出 (code=$code)，${delay}s 后重启" >&2

@@ -14,7 +14,6 @@ import { AccountSwitcher } from "./sidebar/account-switcher";
 import { LayoutControls } from "./sidebar/layout-controls";
 import { SearchDialog } from "./sidebar/search-dialog";
 import { ThemeSwitcher } from "./sidebar/theme-switcher";
-import { UpdateBadge } from "./update-badge";
 
 // 任务详情页保持原样：它自带头部/Tabs 与内边距，这里不再叠加全局头部和 padding。
 function isFullBleed(pathname: string) {
@@ -68,7 +67,6 @@ export function MainContent({ children }: { children: ReactNode }) {
             {version && (
               <span className="font-medium text-muted-foreground text-xs tabular-nums">版本 · {version}</span>
             )}
-            <UpdateBadge />
             <LayoutControls />
             <ThemeSwitcher />
             <AccountSwitcher users={[currentUser]} />
